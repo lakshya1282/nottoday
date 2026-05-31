@@ -220,7 +220,15 @@ export default function Dashboard() {
       )}
 
       <div className="w-full flex justify-between items-center mb-8 gap-4">
-        <h1 className="text-xl font-bold tracking-tight uppercase truncate flex-1">{habitName}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 
+            onClick={() => router.push(habitId ? "/habits" : "/auth")}
+            className="text-xl font-black tracking-tight uppercase truncate flex items-center gap-1.5 cursor-pointer hover:underline"
+            title={habitId ? "Manage Habits" : "Login to manage habits"}
+          >
+            📁 {habitName}
+          </h1>
+        </div>
         <div className="flex flex-col items-end gap-2">
           <button 
             onClick={handleRelapse}
