@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { habitName, streak, userReflection } = await request.json();
+    const { habitName, streak, trigger } = await request.json();
 
     const groqApiKey = process.env.GROQ_API_KEY;
 
     if (!groqApiKey) {
       // Friendly mockup fallback if no Groq API Key is set yet
       return NextResponse.json({
-        response: `⚡ [Mock Coach]: Bro, you successfully resisted "${habitName}" and hit a streak of ${streak}! You did: "${userReflection}". That is pure legend energy. Keep locking it in! (Configure GROQ_API_KEY in your .env.local for full AI replies).`
+        response: `⚡ [Mock Coach]: Boredom/Stress tried to get you to do "${habitName}" again, but you chose growth! A streak of ${streak} is pure legend energy. Beat the trigger: "${trigger}"! Keep locking it in! (Configure GROQ_API_KEY in your .env.local for full AI replies).`
       });
     }
 
@@ -21,8 +21,8 @@ Address the user as "legend", "bro", "warrior", or "legendary self-controller".`
 
     const userPrompt = `I am trying to quit: "${habitName}".
 My current streak is: ${streak} resisted urges.
-Just now, to beat the urge, I did: "${userReflection}".
-Generate a highly customized, extremely encouraging reaction to this.`;
+Just now, I felt an urge to do the habit again. The trigger was: "${trigger}".
+Generate a highly customized, extremely encouraging reaction to this. Congratulate me for beating this specific trigger (e.g. stress, boredom, loneliness) and staying strong.`;
 
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

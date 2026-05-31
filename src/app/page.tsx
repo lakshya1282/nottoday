@@ -33,6 +33,7 @@ export default function Dashboard() {
   // Reflection and AI states
   const [reflectionOpen, setReflectionOpen] = useState(false);
   const [reflectionText, setReflectionText] = useState("");
+  const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReply, setAiReply] = useState("");
 
@@ -203,8 +204,8 @@ export default function Dashboard() {
     }, 400);
   };
 
-  const submitReflection = async () => {
-    if (!reflectionText.trim()) return;
+  const submitReflection = async (triggerValue: string) => {
+    if (!triggerValue.trim()) return;
 
     setAiLoading(true);
     setAiReply("");
@@ -213,7 +214,7 @@ export default function Dashboard() {
     if (habitId && !isOffline) {
       supabase
         .from("checkins")
-        .insert({ habit_id: habitId, note: reflectionText.trim() })
+        .insert({ habit_id: habitId, note: triggerValue.trim() })
         .then();
     }
 
@@ -225,7 +226,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           habitName,
           streak: resists,
-          userReflection: reflectionText.trim()
+          trigger: triggerValue.trim()
         })
       });
 
@@ -252,6 +253,7 @@ export default function Dashboard() {
     // Close modal cleanly
     setReflectionOpen(false);
     setReflectionText("");
+    setSelectedTrigger(null);
     setAiReply("");
   };
 
@@ -407,41 +409,88 @@ export default function Dashboard() {
             >
               <Card className="bg-white max-h-[90vh] overflow-y-auto" style={{ boxShadow: "8px 8px 0 #000" }}>
                 {!aiReply && !aiLoading ? (
-                  // Step 1: Input Reflection
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-2xl font-black uppercase tracking-tight">🔥 URGED BEATEN!</h3>
-                      <button 
-                        onClick={skipReflection} 
-                        className="text-xs font-bold uppercase opacity-55 hover:opacity-100"
-                      >
-                        SKIP REFLECTION
-                      </button>
-                    </div>
-                    
-                    <p className="font-bold text-sm uppercase opacity-75 leading-tight">
-                      What made you keep your streak just now? Share a quick reflection to help you lock it in next time.
-                    </p>
+                  // Step 1: Trigger Selection
+                  selectedTrigger !== "Other" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-2xl font-black uppercase tracking-tight">🔍 WHAT TRIGGERED IT?</h3>
+                        <button 
+                          onClick={skipReflection} 
+                          className="text-xs font-bold uppercase opacity-55 hover:opacity-100"
+                        >
+                          SKIP
+                        </button>
+                      </div>
+                      
+                      <p className="font-bold text-sm uppercase opacity-75 leading-tight">
+                        What triggered your urge just now? Tap to tell your AI Coach:
+                      </p>
 
-                    <textarea
-                      value={reflectionText}
-                      onChange={e => setReflectionText(e.target.value)}
-                      placeholder="e.g. Went for a quick walk, focused on my future self, drank cold water..."
-                      className="w-full h-24 p-3 border-2 border-black font-bold uppercase text-sm focus:outline-none bg-gray-50 placeholder:opacity-40"
-                      required
-                    />
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="primary"
-                        onClick={submitReflection}
-                        disabled={!reflectionText.trim()}
-                        className="flex-1 text-sm py-3"
-                      >
-                        GET AI COACH MOTIVATION
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        {[
+                          { text: "😫 Stress", val: "Stress" },
+                          { text: "😔 Loneliness", val: "Loneliness" },
+                          { text: "🥱 Boredom", val: "Boredom" },
+                          { text: "📱 Social Media", val: "Social Media" }
+                        ].map(item => (
+                          <button
+                            key={item.val}
+                            onClick={() => {
+                              setSelectedTrigger(item.val);
+                              submitReflection(item.val);
+                            }}
+                            className="w-full text-left p-3.5 bg-white border-2 border-black font-black uppercase text-sm rounded-xl hover:bg-[var(--accent)] hover:translate-y-[-2px] transition-all"
+                            style={{ boxShadow: "3px 3px 0 #000" }}
+                          >
+                            {item.text}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setSelectedTrigger("Other")}
+                          className="w-full text-left p-3.5 bg-white border-2 border-black font-black uppercase text-sm rounded-xl hover:bg-yellow-100 hover:translate-y-[-2px] transition-all"
+                          style={{ boxShadow: "3px 3px 0 #000" }}
+                        >
+                          ✍️ Other Trigger...
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    // Step 1.5: Custom Trigger Input
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-2xl font-black uppercase tracking-tight">✍️ CUSTOM TRIGGER</h3>
+                        <button 
+                          onClick={() => { setSelectedTrigger(null); setReflectionText(""); }}
+                          className="text-xs font-bold uppercase opacity-55 hover:opacity-100"
+                        >
+                          BACK
+                        </button>
+                      </div>
+                      
+                      <p className="font-bold text-sm uppercase opacity-75 leading-tight">
+                        What specifically made you feel the urge to do this habit?
+                      </p>
+
+                      <textarea
+                        value={reflectionText}
+                        onChange={e => setReflectionText(e.target.value)}
+                        placeholder="Describe your trigger in your own words..."
+                        className="w-full h-24 p-3 border-2 border-black font-bold uppercase text-sm focus:outline-none bg-gray-50 placeholder:opacity-40"
+                        required
+                      />
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="primary"
+                          onClick={() => submitReflection(reflectionText)}
+                          disabled={!reflectionText.trim()}
+                          className="flex-1 text-sm py-3"
+                        >
+                          GET AI COACH MOTIVATION
+                        </Button>
+                      </div>
+                    </div>
+                  )
                 ) : aiLoading ? (
                   // Step 2: Loading State
                   <div className="flex flex-col items-center justify-center py-8 space-y-4">
@@ -468,6 +517,7 @@ export default function Dashboard() {
                       onClick={() => {
                         setReflectionOpen(false);
                         setReflectionText("");
+                        setSelectedTrigger(null);
                         setAiReply("");
                       }}
                       className="w-full text-sm py-3"
