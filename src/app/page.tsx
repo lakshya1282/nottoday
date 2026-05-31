@@ -30,6 +30,12 @@ export default function Dashboard() {
   const [habitName, setHabitName] = useState("My Habit");
   const [habitId, setHabitId] = useState<string | null>(null);
 
+  // Reflection and AI states
+  const [reflectionOpen, setReflectionOpen] = useState(false);
+  const [reflectionText, setReflectionText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiReply, setAiReply] = useState("");
+
   // Helper to sync local and cloud state
   const triggerSync = async (targetHabitId: string | null) => {
     if (!targetHabitId || !navigator.onLine) return;
@@ -165,7 +171,7 @@ export default function Dashboard() {
         total_resists: newResists
       }).eq("habit_id", habitId).then();
       
-      supabase.from("checkins").insert({ habit_id: habitId }).then();
+      // We do NOT insert the empty checkin immediately; it's delayed to reflection/skip
     }
 
     // Random quote
@@ -190,6 +196,63 @@ export default function Dashboard() {
 
     setPlusOneVisible(true);
     setTimeout(() => setPlusOneVisible(false), 800);
+    
+    // Open the reflection overlay after a very slight delay so the +1 animation can start
+    setTimeout(() => {
+      setReflectionOpen(true);
+    }, 400);
+  };
+
+  const submitReflection = async () => {
+    if (!reflectionText.trim()) return;
+
+    setAiLoading(true);
+    setAiReply("");
+
+    // 1. Insert the checkin note into Supabase if online
+    if (habitId && !isOffline) {
+      supabase
+        .from("checkins")
+        .insert({ habit_id: habitId, note: reflectionText.trim() })
+        .then();
+    }
+
+    try {
+      // 2. Fetch from Groq AI API endpoint
+      const response = await fetch("/api/ai-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          habitName,
+          streak: resists,
+          userReflection: reflectionText.trim()
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAiReply(data.response);
+      } else {
+        setAiReply("Bro, something went wrong calling your AI Coach. But you're still an absolute legend for resisting! Lock in!");
+      }
+    } catch (err) {
+      console.error(err);
+      setAiReply("Internet glitched, but your self-control didn't. Keep moving forward, king!");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const skipReflection = () => {
+    // Insert empty checkin note if online
+    if (habitId && !isOffline) {
+      supabase.from("checkins").insert({ habit_id: habitId }).then();
+    }
+    
+    // Close modal cleanly
+    setReflectionOpen(false);
+    setReflectionText("");
+    setAiReply("");
   };
 
   const handleRelapse = () => {
@@ -326,6 +389,98 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {/* AI Reflection & Motivation Modal */}
+      <AnimatePresence>
+        {reflectionOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md"
+            >
+              <Card className="bg-white max-h-[90vh] overflow-y-auto" style={{ boxShadow: "8px 8px 0 #000" }}>
+                {!aiReply && !aiLoading ? (
+                  // Step 1: Input Reflection
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-2xl font-black uppercase tracking-tight">🔥 URGED BEATEN!</h3>
+                      <button 
+                        onClick={skipReflection} 
+                        className="text-xs font-bold uppercase opacity-55 hover:opacity-100"
+                      >
+                        SKIP REFLECTION
+                      </button>
+                    </div>
+                    
+                    <p className="font-bold text-sm uppercase opacity-75 leading-tight">
+                      What made you keep your streak just now? Share a quick reflection to help you lock it in next time.
+                    </p>
+
+                    <textarea
+                      value={reflectionText}
+                      onChange={e => setReflectionText(e.target.value)}
+                      placeholder="e.g. Went for a quick walk, focused on my future self, drank cold water..."
+                      className="w-full h-24 p-3 border-2 border-black font-bold uppercase text-sm focus:outline-none bg-gray-50 placeholder:opacity-40"
+                      required
+                    />
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        onClick={submitReflection}
+                        disabled={!reflectionText.trim()}
+                        className="flex-1 text-sm py-3"
+                      >
+                        GET AI COACH MOTIVATION
+                      </Button>
+                    </div>
+                  </div>
+                ) : aiLoading ? (
+                  // Step 2: Loading State
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <div className="w-12 h-12 border-4 border-black border-t-[var(--primary)] rounded-full animate-spin" />
+                    <p className="font-black uppercase tracking-widest text-sm animate-pulse text-center">
+                      AI Coach is writing a customized reply...
+                    </p>
+                  </div>
+                ) : (
+                  // Step 3: AI Reply State
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-black uppercase tracking-tight flex items-center gap-1.5">
+                      🤖 COACH REPLY
+                    </h3>
+                    
+                    <Card className="bg-[var(--accent)] border-2" style={{ boxShadow: "4px 4px 0 #000" }}>
+                      <p className="font-bold text-base sm:text-lg uppercase leading-snug">
+                        {aiReply}
+                      </p>
+                    </Card>
+
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setReflectionOpen(false);
+                        setReflectionText("");
+                        setAiReply("");
+                      }}
+                      className="w-full text-sm py-3"
+                    >
+                      LOCK IT IN 💪
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
