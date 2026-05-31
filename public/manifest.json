@@ -1,0 +1,21 @@
+{
+  "name": "Not Today",
+  "short_name": "Not Today",
+  "description": "Every urge resisted is a win.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FADF0C",
+  "theme_color": "#FADF0C",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
